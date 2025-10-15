@@ -2,18 +2,22 @@
 using namespace std;
 
 int main() {
-    int num1;
-    int num2;
+    int str, agi;
 
-    cout << "What is your first number?\n";
-    cin >> num1;
+    cout << "What is your strength?\n";
+    cin >> str;
 
-    cout << "What is your second number?\n";
-    cin >> num2;
+    cout << "What is your agility?\n";
+    cin >> agi;
 
-    cout << "Sum = " << num1 + num2 << endl;
-    cout << "Difference = " << num1 - num2 << endl;
-    cout << "Product = " << num1 * num2 << endl;
-    cout << "Quotient = " << num1 / num2 << endl;
+    if (str >= 20 && agi >= 20) {
+        cout << "You are ready for the hunt.\n";
+    } else if (str > 15 && agi > 15) {
+        cout << "Good progress good hunter\n";
+    } else {
+        cout << "Train harder, hunter.\n";
+    } if (str > 25 || agi > 25) {
+        cout << "A prodigy walks among us.\n";
+    } 
     return 0;
 }
