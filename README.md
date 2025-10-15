@@ -1,1 +1,1 @@
-the legendary codebase of someone who cant sleep at 3am
+the legendary codebase of 2 friends who cant sleep at 3am
