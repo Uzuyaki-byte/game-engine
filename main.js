@@ -21,13 +21,13 @@ renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // --- Lighting ---
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(5, 10, 5);
-light.castShadow = true;
-scene.add(light);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(5, 10, 5);
+dirLight.castShadow = true;
+scene.add(dirLight);
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-scene.add(ambient);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambientLight);
 
 // --- Ground ---
 const groundGeo = new THREE.PlaneGeometry(100, 100);
@@ -49,7 +49,7 @@ scene.add(player);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;
-controls.maxPolarAngle = Math.PI / 2;
+controls.maxPolarAngle = Math.PI / 2 - 0.1;
 controls.minDistance = 2;
 controls.maxDistance = 20;
 
@@ -78,13 +78,20 @@ const direction = new THREE.Vector3();
 let canJump = true;
 const gravity = -30;
 const moveSpeed = 6;
+const jumpHeight = 2;
 const clock = new THREE.Clock();
+
+// --- Helper Function for Smooth Rotation ---
+function lerpAngle(a, b, t) {
+  const diff = ((b - a + Math.PI) % (2 * Math.PI)) - Math.PI;
+  return a + diff * t;
+}
 
 // --- Animation Loop ---
 function animate() {
   const dt = Math.min(0.05, clock.getDelta());
 
-  // Direction from input
+  // --- Input Direction ---
   direction.set(0, 0, 0);
   if (keys.forward) direction.z -= 1;
   if (keys.backward) direction.z += 1;
@@ -92,32 +99,28 @@ function animate() {
   if (keys.right) direction.x += 1;
   direction.normalize();
 
-  // Camera-relative movement
-  const camYaw = Math.atan2(
-    camera.position.x - player.position.x,
-    camera.position.z - player.position.z
-  );
-  const sinY = Math.sin(camYaw),
-    cosY = Math.cos(camYaw);
-  const worldDir = new THREE.Vector3(
-    direction.x * cosY - direction.z * sinY,
-    0,
-    direction.x * sinY + direction.z * cosY
-  );
+  // --- Camera-Relative Movement ---
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  camDir.y = 0;
+  camDir.normalize();
+
+  const camRight = new THREE.Vector3();
+  camRight.crossVectors(new THREE.Vector3(0, 1, 0), camDir);
+
+  const worldDir = new THREE.Vector3();
+  worldDir.addScaledVector(camDir, direction.z);
+  worldDir.addScaledVector(camRight, direction.x);
 
   const targetVel = worldDir.multiplyScalar(moveSpeed);
   velocity.x = THREE.MathUtils.damp(velocity.x, targetVel.x, 8, dt);
   velocity.z = THREE.MathUtils.damp(velocity.z, targetVel.z, 8, dt);
 
-  // Gravity
+  // --- Gravity ---
   velocity.y += gravity * dt;
 
-  // Ground check
-  const rayOrigin = new THREE.Vector3(
-    player.position.x,
-    player.position.y + 0.1,
-    player.position.z
-  );
+  // --- Ground Check ---
+  const rayOrigin = new THREE.Vector3(player.position.x, player.position.y + 0.1, player.position.z);
   const ray = new THREE.Raycaster(rayOrigin, new THREE.Vector3(0, -1, 0), 0, 0.15);
   const intersections = ray.intersectObject(ground);
   const onGround = intersections.length > 0;
@@ -126,35 +129,32 @@ function animate() {
     canJump = true;
   }
 
-  // Jump
+  // --- Jump ---
   if (keys.jump && canJump && onGround) {
-    velocity.y = 10;
+    velocity.y = Math.sqrt(-2 * gravity * jumpHeight);
     canJump = false;
   }
 
-  // Apply movement
+  // --- Apply Movement ---
   player.position.addScaledVector(velocity, dt);
 
-  // Prevent falling through
+  // --- Prevent falling through ---
   if (player.position.y < 1) {
     player.position.y = 1;
     velocity.y = 0;
     canJump = true;
   }
 
-  // Player rotation toward movement direction
+  // --- Smooth Rotation Toward Movement ---
   const horizontalVel = new THREE.Vector3(velocity.x, 0, velocity.z);
   if (horizontalVel.lengthSq() > 0.0001) {
     const targetAngle = Math.atan2(horizontalVel.x, horizontalVel.z);
-    player.rotation.y = THREE.MathUtils.lerpAngle(player.rotation.y, targetAngle, 0.15);
+    player.rotation.y = lerpAngle(player.rotation.y, targetAngle, 0.15);
   }
 
-  // Camera follow
-  const desiredCamOffset = new THREE.Vector3(0, 3.2, 7);
-  desiredCamOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rotation.y);
-  const desiredCamPos = new THREE.Vector3()
-    .copy(player.position)
-    .add(desiredCamOffset);
+  // --- Camera Follow ---
+  const desiredCamOffset = new THREE.Vector3(0, 3.2, 7).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rotation.y);
+  const desiredCamPos = new THREE.Vector3().copy(player.position).add(desiredCamOffset);
   camera.position.lerp(desiredCamPos, 0.08);
 
   controls.target.lerp(player.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 0.12);
